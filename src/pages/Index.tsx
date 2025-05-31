@@ -21,7 +21,7 @@ const Index = () => {
           <div className="mb-8 animate-fade-in">
             <div className="w-32 h-32 mx-auto bg-white rounded-full flex items-center justify-center shadow-2xl animate-scale-in">
               <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-2xl">ORU</span>
+                <span className="text-white font-bold text-xl">KPR</span>
               </div>
             </div>
           </div>
@@ -29,7 +29,7 @@ const Index = () => {
           {/* College Name Animation */}
           <div className="space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold text-white animate-fade-in animation-delay-1000">
-              ORU COLLEGE
+              KPR CAS
             </h1>
             <h2 className="text-xl md:text-2xl text-blue-200 animate-fade-in animation-delay-2000">
               Campus Navigation System

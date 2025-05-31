@@ -223,7 +223,7 @@ const CampusNavigator = () => {
       <header className="bg-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-center text-gray-800 animate-fade-in">
-            ORU College Campus Navigator
+            KPR CAS Campus Navigator
           </h1>
           <p className="text-center text-gray-600 mt-2 animate-fade-in animation-delay-1000">
             Find your way around campus with ease
