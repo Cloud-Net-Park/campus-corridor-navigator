@@ -8,143 +8,170 @@ interface PathRendererProps {
 }
 
 const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint }) => {
-  if (path.length < 2) return null;
+  console.log('PathRenderer - path length:', path.length);
+  console.log('PathRenderer - path coordinates:', path.map(p => ({ x: p.x, y: p.y, id: p.id })));
+  
+  if (path.length < 2) {
+    console.log('PathRenderer - No path to render (less than 2 points)');
+    return null;
+  }
 
-  const renderSmoothPath = () => {
+  const renderPath = () => {
     const elements = [];
 
-    // Create SVG path for smooth curves
+    // Create SVG path with high visibility
     if (path.length >= 2) {
       let pathData = `M ${path[0].x} ${path[0].y}`;
       
-      // Create smooth curves using quadratic bezier curves
-      for (let i = 1; i < path.length - 1; i++) {
-        const current = path[i];
-        const next = path[i + 1];
-        
-        // Control point for smooth curve
-        const cpX = current.x;
-        const cpY = current.y;
-        
-        pathData += ` Q ${cpX} ${cpY} ${(current.x + next.x) / 2} ${(current.y + next.y) / 2}`;
+      // Create smooth path through all points
+      for (let i = 1; i < path.length; i++) {
+        pathData += ` L ${path[i].x} ${path[i].y}`;
       }
-      
-      // Final point
-      const lastPoint = path[path.length - 1];
-      pathData += ` T ${lastPoint.x} ${lastPoint.y}`;
+
+      console.log('PathRenderer - SVG path data:', pathData);
 
       elements.push(
         <svg
-          key="smooth-path"
-          className="absolute inset-0 pointer-events-none z-10"
-          style={{ width: '100%', height: '100%' }}
+          key="main-path"
+          className="absolute inset-0 pointer-events-none"
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            zIndex: 1000,
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }}
+          viewBox="0 0 1200 800"
+          preserveAspectRatio="none"
         >
-          {/* Outer white stroke for visibility */}
+          {/* Glow effect - outer white stroke */}
           <path
             d={pathData}
-            stroke="white"
-            strokeWidth="8"
+            stroke="rgba(255, 255, 255, 0.9)"
+            strokeWidth="12"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
+            filter="blur(2px)"
+          />
+          
+          {/* Main path - bright blue with high contrast */}
+          <path
+            d={pathData}
+            stroke="#0066FF"
+            strokeWidth="6"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.9"
+            className="drop-shadow-lg"
+          />
+          
+          {/* Animated dashes for movement indication */}
+          <path
+            d={pathData}
+            stroke="#00AAFF"
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="15 10"
             opacity="0.8"
-          />
-          {/* Main blue path */}
-          <path
-            d={pathData}
-            stroke="#2563eb"
-            strokeWidth="4"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="drop-shadow-sm"
-          />
-          {/* Animated dashes for direction indication */}
-          <path
-            d={pathData}
-            stroke="#60a5fa"
-            strokeWidth="2"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeDasharray="10 10"
-            className="animate-pulse"
-          />
+          >
+            <animate
+              attributeName="stroke-dashoffset"
+              values="0;25;0"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          </path>
         </svg>
       );
     }
 
-    // Render waypoints only at major turns (every 4th point to reduce clutter)
+    // Render waypoints with high visibility
     path.forEach((point, index) => {
       if (index === 0 || index === path.length - 1) return; // Skip start and end
-      if (index % 4 !== 0) return; // Only show every 4th waypoint
+      if (index % 3 !== 0) return; // Show fewer waypoints for cleaner look
       
       elements.push(
         <div
           key={`waypoint-${index}`}
-          className="absolute z-15 transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute pointer-events-none"
           style={{
             left: `${point.x}px`,
             top: `${point.y}px`,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1001
           }}
         >
-          <div className="w-2 h-2 bg-blue-600 rounded-full border border-white shadow-sm animate-pulse"></div>
+          <div className="relative">
+            {/* Pulsing outer ring */}
+            <div className="absolute inset-0 w-4 h-4 bg-blue-400 rounded-full animate-ping opacity-60"></div>
+            {/* Solid waypoint */}
+            <div className="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg"></div>
+          </div>
         </div>
       );
     });
 
-    // Start point with Google Maps style
+    // Enhanced start point
     if (path.length > 0) {
       const startPoint = path[0];
       elements.push(
         <div
           key="start-marker"
-          className="absolute z-20 transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute pointer-events-none"
           style={{
             left: `${startPoint.x}px`,
             top: `${startPoint.y}px`,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1002
           }}
         >
           <div className="flex flex-col items-center">
             <div className="relative">
-              {/* Pulsing ring */}
-              <div className="absolute inset-0 w-8 h-8 bg-green-400 rounded-full animate-ping opacity-30"></div>
-              {/* Main marker */}
-              <div className="w-8 h-8 bg-green-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+              {/* Pulsing ring animation */}
+              <div className="absolute inset-0 w-10 h-10 bg-green-400 rounded-full animate-ping opacity-50"></div>
+              {/* Main start marker */}
+              <div className="w-10 h-10 bg-green-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
                 <div className="w-4 h-4 bg-white rounded-full"></div>
               </div>
             </div>
-            <div className="mt-2 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full shadow-md">
-              Start
+            <div className="mt-2 px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full shadow-lg border border-white">
+              START
             </div>
           </div>
         </div>
       );
     }
 
-    // End point with Google Maps style
+    // Enhanced end point
     if (path.length > 0) {
       const endPoint = path[path.length - 1];
       elements.push(
         <div
           key="end-marker"
-          className="absolute z-20 transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute pointer-events-none"
           style={{
             left: `${endPoint.x}px`,
             top: `${endPoint.y}px`,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1002
           }}
         >
           <div className="flex flex-col items-center">
             <div className="relative">
-              {/* Pulsing ring */}
-              <div className="absolute inset-0 w-8 h-8 bg-red-400 rounded-full animate-ping opacity-30"></div>
-              {/* Main marker */}
-              <div className="w-8 h-8 bg-red-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+              {/* Pulsing ring animation */}
+              <div className="absolute inset-0 w-10 h-10 bg-red-400 rounded-full animate-ping opacity-50"></div>
+              {/* Main end marker */}
+              <div className="w-10 h-10 bg-red-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
                 <div className="w-4 h-4 bg-white rounded-full"></div>
               </div>
             </div>
-            <div className="mt-2 px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full shadow-md">
-              End
+            <div className="mt-2 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-lg border border-white">
+              END
             </div>
           </div>
         </div>
@@ -155,8 +182,11 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      {renderSmoothPath()}
+    <div 
+      className="absolute inset-0 pointer-events-none" 
+      style={{ zIndex: 1000 }}
+    >
+      {renderPath()}
     </div>
   );
 };

@@ -30,14 +30,24 @@ const CampusMap: React.FC<CampusMapProps> = ({
   const visibleRooms = currentFloorRooms.filter(room => room.type === 'room' || room.type === 'stairs');
 
   useEffect(() => {
+    console.log('CampusMap - Path calculation triggered');
+    console.log('CampusMap - Starting point:', startingPoint);
+    console.log('CampusMap - Destination:', destination);
+    console.log('CampusMap - Selected floor:', selectedFloor);
+    
     if (startingPoint && destination) {
       const startRoom = roomLocations.find(room => room.id === startingPoint);
       const destRoom = roomLocations.find(room => room.id === destination);
       
+      console.log('CampusMap - Start room found:', startRoom);
+      console.log('CampusMap - Destination room found:', destRoom);
+      
       if (startRoom && destRoom) {
         // If both rooms are on the same floor as currently selected
         if (startRoom.floor === selectedFloor && destRoom.floor === selectedFloor) {
+          console.log('CampusMap - Both rooms on same floor, calculating path');
           const foundPath = findPath(startRoom, destRoom, roomLocations);
+          console.log('CampusMap - Path found:', foundPath);
           setPath(foundPath);
         } else if (startRoom.floor === selectedFloor) {
           // Show path from start to stairs on current floor
@@ -45,6 +55,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
             room.floor === selectedFloor && room.type === 'stairs'
           );
           if (stairs) {
+            console.log('CampusMap - Calculating path to stairs');
             const pathToStairs = findPath(startRoom, stairs, roomLocations);
             setPath(pathToStairs);
           }
@@ -54,14 +65,17 @@ const CampusMap: React.FC<CampusMapProps> = ({
             room.floor === selectedFloor && room.type === 'stairs'
           );
           if (stairs) {
+            console.log('CampusMap - Calculating path from stairs');
             const pathFromStairs = findPath(stairs, destRoom, roomLocations);
             setPath(pathFromStairs);
           }
         } else {
+          console.log('CampusMap - No path for current floor');
           setPath([]);
         }
       }
     } else {
+      console.log('CampusMap - No start/destination selected');
       setPath([]);
     }
   }, [startingPoint, destination, selectedFloor]);
@@ -183,7 +197,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
           }}
         >
           {/* Campus blueprint background */}
-          <div className="w-full h-full relative">
+          <div className="w-full h-full relative" style={{ zIndex: 1 }}>
             <img
               src={selectedFloor === 1 ? "/lovable-uploads/1f09435f-d7cb-4c29-ae64-c8921345cbd3.png" : "/lovable-uploads/39c49468-71ba-4ca3-91f7-908324041e06.png"}
               alt={`Campus Map - Floor ${selectedFloor}`}
@@ -192,25 +206,29 @@ const CampusMap: React.FC<CampusMapProps> = ({
               draggable={false}
             />
             
-            {/* Path overlay */}
-            {path.length > 0 && (
-              <PathRenderer 
-                path={path}
-                startPoint={startingPoint}
-                endPoint={destination}
-              />
-            )}
-            
             {/* Room markers */}
-            {visibleRooms.map((room) => (
-              <MapMarker
-                key={room.id}
-                room={room}
-                isStart={room.id === startingPoint}
-                isDestination={room.id === destination}
-                isOnPath={path.some(p => p.id === room.id)}
-              />
-            ))}
+            <div style={{ zIndex: 100 }}>
+              {visibleRooms.map((room) => (
+                <MapMarker
+                  key={room.id}
+                  room={room}
+                  isStart={room.id === startingPoint}
+                  isDestination={room.id === destination}
+                  isOnPath={path.some(p => p.id === room.id)}
+                />
+              ))}
+            </div>
+            
+            {/* Path overlay - highest z-index */}
+            {path.length > 0 && (
+              <div style={{ zIndex: 1000 }}>
+                <PathRenderer 
+                  path={path}
+                  startPoint={startingPoint}
+                  endPoint={destination}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -264,6 +282,13 @@ const CampusMap: React.FC<CampusMapProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Debug info */}
+      {path.length > 0 && (
+        <div className="absolute top-20 left-4 z-20 bg-black bg-opacity-75 text-white p-2 rounded text-xs">
+          Path Points: {path.length}
+        </div>
+      )}
     </div>
   );
 };
