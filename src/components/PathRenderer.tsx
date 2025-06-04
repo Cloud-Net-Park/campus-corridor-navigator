@@ -1,123 +1,107 @@
 
 import React from 'react';
-import { ArrowRight, Navigation } from 'lucide-react';
 
 interface PathRendererProps {
-  path: Array<{ x: number; y: number; id: string }>;
+  path: Array<{ x: number; y: number; id: string; name: string }>;
   startPoint?: string;
   endPoint?: string;
 }
 
-const PathRenderer: React.FC<PathRendererProps> = ({ path }) => {
+const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint }) => {
   if (path.length < 2) return null;
 
   const renderPath = () => {
     const elements = [];
 
+    // Render clean blue path lines
     for (let i = 0; i < path.length - 1; i++) {
       const current = path[i];
       const next = path[i + 1];
 
-      // Calculate line properties
       const dx = next.x - current.x;
       const dy = next.y - current.y;
       const length = Math.sqrt(dx * dx + dy * dy);
       const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-      // Animated line segment
+      // Clean blue path line
       elements.push(
         <div
-          key={`line-${i}`}
-          className="absolute bg-gradient-to-r from-blue-500 to-blue-600 z-5 animate-fade-in shadow-lg"
+          key={`path-${i}`}
+          className="absolute bg-blue-600 z-10"
           style={{
             left: `${current.x}px`,
-            top: `${current.y - 3}px`,
+            top: `${current.y - 2}px`,
             width: `${length}px`,
-            height: '6px',
+            height: '4px',
             transformOrigin: '0 50%',
             transform: `rotate(${angle}deg)`,
-            opacity: 0.9,
-            borderRadius: '3px',
-            animationDelay: `${i * 0.1}s`
+            borderRadius: '2px'
           }}
         />
       );
-
-      // Glowing underline for better visibility
-      elements.push(
-        <div
-          key={`glow-${i}`}
-          className="absolute bg-blue-400 z-4 animate-pulse"
-          style={{
-            left: `${current.x}px`,
-            top: `${current.y - 4}px`,
-            width: `${length}px`,
-            height: '8px',
-            transformOrigin: '0 50%',
-            transform: `rotate(${angle}deg)`,
-            opacity: 0.3,
-            borderRadius: '4px',
-            filter: 'blur(2px)'
-          }}
-        />
-      );
-
-      // Direction arrow at midpoint with animation
-      if (length > 25) {
-        const midX = current.x + dx * 0.5;
-        const midY = current.y + dy * 0.5;
-
-        elements.push(
-          <div
-            key={`arrow-${i}`}
-            className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2 animate-fade-in hover:scale-110 transition-transform duration-300"
-            style={{
-              left: `${midX}px`,
-              top: `${midY}px`,
-              transform: `translate(-50%, -50%) rotate(${angle}deg)`,
-              animationDelay: `${i * 0.15}s`
-            }}
-          >
-            <div className="bg-gradient-to-r from-blue-700 to-blue-800 text-white rounded-full p-2 shadow-xl border-2 border-blue-300 hover:shadow-2xl transition-all duration-300">
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          </div>
-        );
-      }
     }
 
-    // Add special markers for start and end points
+    // Render solid circular waypoints at key turns
+    path.forEach((point, index) => {
+      if (index === 0 || index === path.length - 1) return; // Skip start and end points
+      
+      elements.push(
+        <div
+          key={`waypoint-${index}`}
+          className="absolute z-15 transform -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: `${point.x}px`,
+            top: `${point.y}px`,
+          }}
+        >
+          <div className="w-3 h-3 bg-blue-600 rounded-full border-2 border-white shadow-md"></div>
+        </div>
+      );
+    });
+
+    // Start point (green circle with "Start" label)
     if (path.length > 0) {
-      // Start point marker
       const startPoint = path[0];
       elements.push(
         <div
           key="start-marker"
-          className="absolute z-15 transform -translate-x-1/2 -translate-y-1/2 animate-bounce"
+          className="absolute z-20 transform -translate-x-1/2 -translate-y-1/2"
           style={{
             left: `${startPoint.x}px`,
             top: `${startPoint.y}px`,
           }}
         >
-          <div className="bg-green-500 text-white rounded-full p-2 shadow-xl border-2 border-white">
-            <div className="w-3 h-3 bg-white rounded-full"></div>
+          <div className="flex flex-col items-center">
+            <div className="w-6 h-6 bg-green-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full"></div>
+            </div>
+            <div className="mt-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded shadow-md">
+              Start
+            </div>
           </div>
         </div>
       );
+    }
 
-      // End point marker
+    // End point (red circle with "End" label)
+    if (path.length > 0) {
       const endPoint = path[path.length - 1];
       elements.push(
         <div
           key="end-marker"
-          className="absolute z-15 transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
+          className="absolute z-20 transform -translate-x-1/2 -translate-y-1/2"
           style={{
             left: `${endPoint.x}px`,
             top: `${endPoint.y}px`,
           }}
         >
-          <div className="bg-red-500 text-white rounded-full p-2 shadow-xl border-2 border-white">
-            <Navigation className="w-4 h-4" />
+          <div className="flex flex-col items-center">
+            <div className="w-6 h-6 bg-red-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full"></div>
+            </div>
+            <div className="mt-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded shadow-md">
+              End
+            </div>
           </div>
         </div>
       );
