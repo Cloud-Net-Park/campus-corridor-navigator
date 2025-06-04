@@ -23,6 +23,11 @@ const getDistance = (a: Point, b: Point): number => {
   return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
 };
 
+// Calculate distance between two graph nodes
+const getNodeDistance = (a: GraphNode, b: GraphNode): number => {
+  return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
+};
+
 // Enhanced connection logic for cleaner paths
 const canConnect = (a: Point, b: Point, allPoints: Point[]): boolean => {
   const distance = getDistance(a, b);
@@ -121,7 +126,7 @@ const dijkstra = (graph: { [key: string]: GraphNode }, startId: string, endId: s
     currentNode.connections.forEach(neighborId => {
       const neighbor = graph[neighborId];
       if (neighbor && !neighbor.visited) {
-        const distance = getDistance(currentNode!, neighbor);
+        const distance = getNodeDistance(currentNode!, neighbor);
         const newDistance = currentNode!.distance + distance;
         
         if (newDistance < neighbor.distance) {
