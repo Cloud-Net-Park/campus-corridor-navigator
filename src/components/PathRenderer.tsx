@@ -10,40 +10,74 @@ interface PathRendererProps {
 const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint }) => {
   if (path.length < 2) return null;
 
-  const renderPath = () => {
+  const renderSmoothPath = () => {
     const elements = [];
 
-    // Render clean blue path lines
-    for (let i = 0; i < path.length - 1; i++) {
-      const current = path[i];
-      const next = path[i + 1];
+    // Create SVG path for smooth curves
+    if (path.length >= 2) {
+      let pathData = `M ${path[0].x} ${path[0].y}`;
+      
+      // Create smooth curves using quadratic bezier curves
+      for (let i = 1; i < path.length - 1; i++) {
+        const current = path[i];
+        const next = path[i + 1];
+        
+        // Control point for smooth curve
+        const cpX = current.x;
+        const cpY = current.y;
+        
+        pathData += ` Q ${cpX} ${cpY} ${(current.x + next.x) / 2} ${(current.y + next.y) / 2}`;
+      }
+      
+      // Final point
+      const lastPoint = path[path.length - 1];
+      pathData += ` T ${lastPoint.x} ${lastPoint.y}`;
 
-      const dx = next.x - current.x;
-      const dy = next.y - current.y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-      // Clean blue path line
       elements.push(
-        <div
-          key={`path-${i}`}
-          className="absolute bg-blue-600 z-10"
-          style={{
-            left: `${current.x}px`,
-            top: `${current.y - 2}px`,
-            width: `${length}px`,
-            height: '4px',
-            transformOrigin: '0 50%',
-            transform: `rotate(${angle}deg)`,
-            borderRadius: '2px'
-          }}
-        />
+        <svg
+          key="smooth-path"
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* Outer white stroke for visibility */}
+          <path
+            d={pathData}
+            stroke="white"
+            strokeWidth="8"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.8"
+          />
+          {/* Main blue path */}
+          <path
+            d={pathData}
+            stroke="#2563eb"
+            strokeWidth="4"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="drop-shadow-sm"
+          />
+          {/* Animated dashes for direction indication */}
+          <path
+            d={pathData}
+            stroke="#60a5fa"
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="10 10"
+            className="animate-pulse"
+          />
+        </svg>
       );
     }
 
-    // Render solid circular waypoints at key turns
+    // Render waypoints only at major turns (every 4th point to reduce clutter)
     path.forEach((point, index) => {
-      if (index === 0 || index === path.length - 1) return; // Skip start and end points
+      if (index === 0 || index === path.length - 1) return; // Skip start and end
+      if (index % 4 !== 0) return; // Only show every 4th waypoint
       
       elements.push(
         <div
@@ -54,12 +88,12 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
             top: `${point.y}px`,
           }}
         >
-          <div className="w-3 h-3 bg-blue-600 rounded-full border-2 border-white shadow-md"></div>
+          <div className="w-2 h-2 bg-blue-600 rounded-full border border-white shadow-sm animate-pulse"></div>
         </div>
       );
     });
 
-    // Start point (green circle with "Start" label)
+    // Start point with Google Maps style
     if (path.length > 0) {
       const startPoint = path[0];
       elements.push(
@@ -72,10 +106,15 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
           }}
         >
           <div className="flex flex-col items-center">
-            <div className="w-6 h-6 bg-green-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
+            <div className="relative">
+              {/* Pulsing ring */}
+              <div className="absolute inset-0 w-8 h-8 bg-green-400 rounded-full animate-ping opacity-30"></div>
+              {/* Main marker */}
+              <div className="w-8 h-8 bg-green-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                <div className="w-4 h-4 bg-white rounded-full"></div>
+              </div>
             </div>
-            <div className="mt-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded shadow-md">
+            <div className="mt-2 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full shadow-md">
               Start
             </div>
           </div>
@@ -83,7 +122,7 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
       );
     }
 
-    // End point (red circle with "End" label)
+    // End point with Google Maps style
     if (path.length > 0) {
       const endPoint = path[path.length - 1];
       elements.push(
@@ -96,10 +135,15 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
           }}
         >
           <div className="flex flex-col items-center">
-            <div className="w-6 h-6 bg-red-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
+            <div className="relative">
+              {/* Pulsing ring */}
+              <div className="absolute inset-0 w-8 h-8 bg-red-400 rounded-full animate-ping opacity-30"></div>
+              {/* Main marker */}
+              <div className="w-8 h-8 bg-red-600 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                <div className="w-4 h-4 bg-white rounded-full"></div>
+              </div>
             </div>
-            <div className="mt-1 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded shadow-md">
+            <div className="mt-2 px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full shadow-md">
               End
             </div>
           </div>
@@ -112,7 +156,7 @@ const PathRenderer: React.FC<PathRendererProps> = ({ path, startPoint, endPoint 
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {renderPath()}
+      {renderSmoothPath()}
     </div>
   );
 };
