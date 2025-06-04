@@ -137,14 +137,42 @@ const CampusMap: React.FC<CampusMapProps> = ({
       <div
         ref={mapRef}
         className="w-full h-full cursor-move"
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onWheel={(e) => {
+          e.preventDefault();
+          const newScale = Math.min(Math.max(scale - e.deltaY * 0.001, 0.5), 3);
+          setScale(newScale);
+        }}
+        onMouseDown={(e) => {
+          setIsDragging(true);
+          setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+        }}
+        onMouseMove={(e) => {
+          if (isDragging) {
+            setPosition({
+              x: e.clientX - dragStart.x,
+              y: e.clientY - dragStart.y
+            });
+          }
+        }}
+        onMouseUp={() => setIsDragging(false)}
+        onMouseLeave={() => setIsDragging(false)}
+        onTouchStart={(e) => {
+          if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            setIsDragging(true);
+            setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+          }
+        }}
+        onTouchMove={(e) => {
+          if (isDragging && e.touches.length === 1) {
+            const touch = e.touches[0];
+            setPosition({
+              x: touch.clientX - dragStart.x,
+              y: touch.clientY - dragStart.y
+            });
+          }
+        }}
+        onTouchEnd={() => setIsDragging(false)}
         style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
         <div
@@ -157,8 +185,8 @@ const CampusMap: React.FC<CampusMapProps> = ({
           {/* Campus blueprint background */}
           <div className="w-full h-full relative">
             <img
-              src="/lovable-uploads/39c49468-71ba-4ca3-91f7-908324041e06.png"
-              alt="Campus Map"
+              src={selectedFloor === 1 ? "/lovable-uploads/1f09435f-d7cb-4c29-ae64-c8921345cbd3.png" : "/lovable-uploads/39c49468-71ba-4ca3-91f7-908324041e06.png"}
+              alt={`Campus Map - Floor ${selectedFloor}`}
               className="w-full h-full object-contain"
               style={{ maxWidth: '1200px', maxHeight: '800px' }}
               draggable={false}
