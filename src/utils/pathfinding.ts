@@ -1,4 +1,3 @@
-
 interface Point {
   x: number;
   y: number;
@@ -37,46 +36,44 @@ const heuristic = (a: GraphNode, b: GraphNode): number => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-// More permissive connection logic to ensure paths can be found
+// Improved connection logic that follows actual walkways
 const canConnect = (a: Point, b: Point, allPoints: Point[]): boolean => {
   const distance = getDistance(a, b);
   
   console.log(`Checking connection between ${a.name} and ${b.name}, distance: ${distance}`);
   
-  // More generous distance limits
-  if (distance > 200) {
-    console.log(`Distance too far: ${distance}`);
-    return false;
-  }
-  
-  // Direct room-to-room connections for close rooms
-  if (a.type === 'room' && b.type === 'room') {
-    if (distance <= 150) {
-      console.log(`Direct room connection allowed: ${distance}`);
-      return true;
-    }
-  }
-  
-  // Room to corridor connections
-  if ((a.type === 'room' && b.type === 'corridor') || 
-      (a.type === 'corridor' && b.type === 'room')) {
-    if (distance <= 100) {
-      console.log(`Room-corridor connection allowed: ${distance}`);
-      return true;
-    }
-  }
-  
-  // Corridor-to-corridor connections
+  // Corridor-to-corridor connections (following walkways)
   if (a.type === 'corridor' && b.type === 'corridor') {
-    if (distance <= 120) {
-      console.log(`Corridor-corridor connection allowed: ${distance}`);
+    // Allow connections along main corridors (horizontal)
+    if (Math.abs(a.y - b.y) < 10 && distance <= 60) {
+      console.log(`Horizontal corridor connection allowed: ${distance}`);
+      return true;
+    }
+    // Allow vertical connections
+    if (Math.abs(a.x - b.x) < 10 && distance <= 80) {
+      console.log(`Vertical corridor connection allowed: ${distance}`);
+      return true;
+    }
+  }
+  
+  // Room to nearest corridor connections
+  if (a.type === 'room' && b.type === 'corridor') {
+    if (distance <= 50) {
+      console.log(`Room-to-corridor connection allowed: ${distance}`);
+      return true;
+    }
+  }
+  
+  if (a.type === 'corridor' && b.type === 'room') {
+    if (distance <= 50) {
+      console.log(`Corridor-to-room connection allowed: ${distance}`);
       return true;
     }
   }
   
   // Stairs connections
   if (a.type === 'stairs' || b.type === 'stairs') {
-    if (distance <= 100) {
+    if (distance <= 60) {
       console.log(`Stairs connection allowed: ${distance}`);
       return true;
     }
@@ -221,31 +218,41 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   return []; // No path found
 };
 
-// Simple direct path if A* fails
+// Enhanced direct path that follows corridor-like paths
 const createDirectPath = (start: Point, end: Point): Point[] => {
-  console.log('Creating direct path between points');
+  console.log('Creating corridor-following path between points');
   
-  // Create intermediate points for a straight line
-  const numPoints = 5;
   const path: Point[] = [start];
   
-  for (let i = 1; i < numPoints; i++) {
-    const t = i / numPoints;
-    const x = start.x + (end.x - start.x) * t;
-    const y = start.y + (end.y - start.y) * t;
-    
+  // Create a path that follows corridor-like movement (horizontal then vertical)
+  const midX = start.x + (end.x - start.x) * 0.7;
+  const midY = start.y;
+  
+  // Add intermediate waypoints
+  if (Math.abs(end.x - start.x) > 50) {
     path.push({
-      x: Math.round(x),
-      y: Math.round(y),
-      id: `direct_${i}`,
-      name: `Waypoint ${i}`,
+      x: Math.round(midX),
+      y: Math.round(midY),
+      id: 'waypoint_1',
+      name: 'Waypoint',
       floor: start.floor,
-      type: 'waypoint'
+      type: 'corridor'
+    });
+  }
+  
+  if (Math.abs(end.y - start.y) > 50) {
+    path.push({
+      x: Math.round(midX),
+      y: Math.round(end.y),
+      id: 'waypoint_2',
+      name: 'Waypoint',
+      floor: start.floor,
+      type: 'corridor'
     });
   }
   
   path.push(end);
-  console.log('Direct path created with points:', path.map(p => ({ x: p.x, y: p.y })));
+  console.log('Corridor-following path created with points:', path.map(p => ({ x: p.x, y: p.y })));
   return path;
 };
 

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { roomLocations } from '../data/roomData';
 import { findPath } from '../utils/pathfinding';
 import MapMarker from './MapMarker';
 import PathRenderer from './PathRenderer';
+import RoomLabel from './RoomLabel';
 
 interface CampusMapProps {
   selectedFloor: number;
@@ -209,6 +209,17 @@ const CampusMap: React.FC<CampusMapProps> = ({
               draggable={false}
             />
             
+            {/* Room labels */}
+            <div style={{ zIndex: 50 }}>
+              {visibleRooms.map((room) => (
+                <RoomLabel
+                  key={`label-${room.id}`}
+                  room={room}
+                  isHighlighted={room.id === startingPoint || room.id === destination}
+                />
+              ))}
+            </div>
+            
             {/* Room markers */}
             <div style={{ zIndex: 100 }}>
               {visibleRooms.map((room) => (
@@ -222,7 +233,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
               ))}
             </div>
             
-            {/* Path overlay - MAXIMUM z-index and positioned absolutely */}
+            {/* Path overlay */}
             {path.length > 0 && (
               <PathRenderer 
                 path={path}
@@ -261,7 +272,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Enhanced Legend */}
       <div className="absolute bottom-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4">
         <h3 className="font-semibold mb-2">Legend</h3>
         <div className="space-y-2 text-sm">
@@ -275,11 +286,15 @@ const CampusMap: React.FC<CampusMapProps> = ({
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-4 h-1 bg-blue-600"></div>
-            <span>Path</span>
+            <span>Walking Path</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-orange-600 rounded-full"></div>
             <span>Stairs</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-white border border-gray-400"></div>
+            <span>Room Labels</span>
           </div>
         </div>
       </div>
