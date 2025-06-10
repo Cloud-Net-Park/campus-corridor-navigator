@@ -48,6 +48,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
           console.log('CampusMap - Both rooms on same floor, calculating path');
           const foundPath = findPath(startRoom, destRoom, roomLocations);
           console.log('CampusMap - Path found:', foundPath);
+          console.log('CampusMap - Path coordinates check:', foundPath.map(p => `(${p.x}, ${p.y})`));
           setPath(foundPath);
         } else if (startRoom.floor === selectedFloor) {
           // Show path from start to stairs on current floor
@@ -57,6 +58,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
           if (stairs) {
             console.log('CampusMap - Calculating path to stairs');
             const pathToStairs = findPath(startRoom, stairs, roomLocations);
+            console.log('CampusMap - Path to stairs:', pathToStairs);
             setPath(pathToStairs);
           }
         } else if (destRoom.floor === selectedFloor) {
@@ -67,6 +69,7 @@ const CampusMap: React.FC<CampusMapProps> = ({
           if (stairs) {
             console.log('CampusMap - Calculating path from stairs');
             const pathFromStairs = findPath(stairs, destRoom, roomLocations);
+            console.log('CampusMap - Path from stairs:', pathFromStairs);
             setPath(pathFromStairs);
           }
         } else {
@@ -219,15 +222,13 @@ const CampusMap: React.FC<CampusMapProps> = ({
               ))}
             </div>
             
-            {/* Path overlay - highest z-index */}
+            {/* Path overlay - MAXIMUM z-index and positioned absolutely */}
             {path.length > 0 && (
-              <div style={{ zIndex: 1000 }}>
-                <PathRenderer 
-                  path={path}
-                  startPoint={startingPoint}
-                  endPoint={destination}
-                />
-              </div>
+              <PathRenderer 
+                path={path}
+                startPoint={startingPoint}
+                endPoint={destination}
+              />
             )}
           </div>
         </div>
