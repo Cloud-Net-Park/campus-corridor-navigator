@@ -30,44 +30,67 @@ const getNodeDistance = (a: GraphNode, b: GraphNode): number => {
   return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
 };
 
-// Heuristic function for A* (Manhattan distance with diagonal adjustment)
+// Heuristic function for A* (straight line distance)
 const heuristic = (a: GraphNode, b: GraphNode): number => {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-// Enhanced connection logic for realistic paths
+// More permissive connection logic to ensure paths can be found
 const canConnect = (a: Point, b: Point, allPoints: Point[]): boolean => {
   const distance = getDistance(a, b);
   
-  // Stricter distance limits for more realistic paths
-  if (distance > 120) return false;
+  console.log(`Checking connection between ${a.name} and ${b.name}, distance: ${distance}`);
   
-  // Allow connections between rooms and nearby corridor points
-  if (a.type === 'room' && b.type === 'corridor') {
-    return distance <= 60;
-  }
-  if (a.type === 'corridor' && b.type === 'room') {
-    return distance <= 60;
+  // More generous distance limits
+  if (distance > 200) {
+    console.log(`Distance too far: ${distance}`);
+    return false;
   }
   
-  // Corridor-to-corridor connections should be close
+  // Direct room-to-room connections for close rooms
+  if (a.type === 'room' && b.type === 'room') {
+    if (distance <= 150) {
+      console.log(`Direct room connection allowed: ${distance}`);
+      return true;
+    }
+  }
+  
+  // Room to corridor connections
+  if ((a.type === 'room' && b.type === 'corridor') || 
+      (a.type === 'corridor' && b.type === 'room')) {
+    if (distance <= 100) {
+      console.log(`Room-corridor connection allowed: ${distance}`);
+      return true;
+    }
+  }
+  
+  // Corridor-to-corridor connections
   if (a.type === 'corridor' && b.type === 'corridor') {
-    return distance <= 80;
+    if (distance <= 120) {
+      console.log(`Corridor-corridor connection allowed: ${distance}`);
+      return true;
+    }
   }
   
   // Stairs connections
   if (a.type === 'stairs' || b.type === 'stairs') {
-    return distance <= 80;
+    if (distance <= 100) {
+      console.log(`Stairs connection allowed: ${distance}`);
+      return true;
+    }
   }
   
+  console.log(`Connection rejected for ${a.name} to ${b.name}`);
   return false;
 };
 
-// Build graph with realistic connections
+// Build graph with connections
 const buildGraph = (points: Point[]): { [key: string]: GraphNode } => {
   const graph: { [key: string]: GraphNode } = {};
+  
+  console.log('Building graph with points:', points.map(p => ({ id: p.id, name: p.name, x: p.x, y: p.y, type: p.type })));
   
   // Initialize nodes
   points.forEach(point => {
@@ -84,22 +107,32 @@ const buildGraph = (points: Point[]): { [key: string]: GraphNode } => {
     };
   });
   
-  // Create smart connections
+  // Create connections
   points.forEach(pointA => {
     points.forEach(pointB => {
       if (pointA.id !== pointB.id && pointA.floor === pointB.floor) {
         if (canConnect(pointA, pointB, points)) {
           graph[pointA.id].connections.push(pointB.id);
+          console.log(`Connected ${pointA.name} to ${pointB.name}`);
         }
       }
     });
   });
   
+  // Log final connections
+  Object.values(graph).forEach(node => {
+    if (node.connections.length > 0) {
+      console.log(`Node ${node.id} has ${node.connections.length} connections:`, node.connections);
+    }
+  });
+  
   return graph;
 };
 
-// A* pathfinding algorithm for optimal routes
+// A* pathfinding algorithm
 const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: string): string[] => {
+  console.log(`Starting A* pathfinding from ${startId} to ${endId}`);
+  
   // Reset graph
   Object.values(graph).forEach(node => {
     node.gCost = Infinity;
@@ -110,6 +143,7 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   });
   
   if (!graph[startId] || !graph[endId]) {
+    console.log('Start or end node not found in graph');
     return [];
   }
   
@@ -122,6 +156,8 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   
   const openSet = new Set([startId]);
   const closedSet = new Set();
+  
+  console.log(`Initial setup: start node connections: ${startNode.connections.length}`);
   
   while (openSet.size > 0) {
     // Find node with lowest fCost
@@ -136,7 +172,10 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
       }
     }
     
+    console.log(`Processing node: ${currentId}`);
+    
     if (currentId === endId) {
+      console.log('Path found! Reconstructing...');
       // Reconstruct path
       const path: string[] = [];
       let current: string | null = endId;
@@ -146,6 +185,7 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
         current = graph[current].parent;
       }
       
+      console.log('Final path:', path);
       return path;
     }
     
@@ -153,6 +193,7 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
     closedSet.add(currentId);
     
     const currentNode = graph[currentId];
+    console.log(`Current node ${currentId} has ${currentNode.connections.length} connections`);
     
     // Check neighbors
     currentNode.connections.forEach(neighborId => {
@@ -171,61 +212,61 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
       neighbor.gCost = tentativeGCost;
       neighbor.hCost = heuristic(neighbor, endNode);
       neighbor.fCost = neighbor.gCost + neighbor.hCost;
+      
+      console.log(`Updated neighbor ${neighborId} with gCost: ${neighbor.gCost}`);
     });
   }
   
+  console.log('No path found');
   return []; // No path found
 };
 
-// Smooth path using cubic bezier curves
-const smoothPath = (points: Point[]): Point[] => {
-  if (points.length <= 2) return points;
+// Simple direct path if A* fails
+const createDirectPath = (start: Point, end: Point): Point[] => {
+  console.log('Creating direct path between points');
   
-  const smoothedPoints: Point[] = [points[0]]; // Start with first point
+  // Create intermediate points for a straight line
+  const numPoints = 5;
+  const path: Point[] = [start];
   
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1];
-    const current = points[i];
-    const next = points[i + 1];
+  for (let i = 1; i < numPoints; i++) {
+    const t = i / numPoints;
+    const x = start.x + (end.x - start.x) * t;
+    const y = start.y + (end.y - start.y) * t;
     
-    // Add intermediate points for smooth curves
-    const numInterpolatedPoints = 3;
-    for (let j = 0; j <= numInterpolatedPoints; j++) {
-      const t = j / numInterpolatedPoints;
-      
-      // Cubic bezier interpolation
-      const x = Math.pow(1 - t, 2) * prev.x + 
-                2 * (1 - t) * t * current.x + 
-                Math.pow(t, 2) * next.x;
-      const y = Math.pow(1 - t, 2) * prev.y + 
-                2 * (1 - t) * t * current.y + 
-                Math.pow(t, 2) * next.y;
-      
-      if (j > 0) { // Skip the first point to avoid duplicates
-        smoothedPoints.push({
-          x: Math.round(x),
-          y: Math.round(y),
-          id: `smooth_${i}_${j}`,
-          name: `Waypoint ${i}_${j}`,
-          floor: current.floor,
-          type: 'waypoint'
-        });
-      }
-    }
+    path.push({
+      x: Math.round(x),
+      y: Math.round(y),
+      id: `direct_${i}`,
+      name: `Waypoint ${i}`,
+      floor: start.floor,
+      type: 'waypoint'
+    });
   }
   
-  smoothedPoints.push(points[points.length - 1]); // End with last point
-  return smoothedPoints;
+  path.push(end);
+  console.log('Direct path created with points:', path.map(p => ({ x: p.x, y: p.y })));
+  return path;
 };
 
-// Main pathfinding function with smooth curves
+// Main pathfinding function
 export const findPath = (start: Point, end: Point, allPoints: Point[]): Point[] => {
-  if (!start || !end) return [];
+  console.log('=== PATHFINDING START ===');
+  console.log('Start point:', start);
+  console.log('End point:', end);
+  console.log('All points count:', allPoints.length);
+  
+  if (!start || !end) {
+    console.log('Missing start or end point');
+    return [];
+  }
   
   // Filter points to same floor
   const floorPoints = allPoints.filter(point => 
     point.floor === start.floor || point.floor === end.floor
   );
+  
+  console.log('Floor points count:', floorPoints.length);
   
   const pointsToUse = [...floorPoints];
   if (!pointsToUse.find(p => p.id === start.id)) {
@@ -235,18 +276,23 @@ export const findPath = (start: Point, end: Point, allPoints: Point[]): Point[] 
     pointsToUse.push(end);
   }
   
+  console.log('Points to use for pathfinding:', pointsToUse.length);
+  
   const graph = buildGraph(pointsToUse);
   const pathIds = aStar(graph, start.id, end.id);
   
   if (pathIds.length === 0) {
-    return [];
+    console.log('A* failed, creating direct path');
+    // Fallback to direct path
+    return createDirectPath(start, end);
   }
   
-  // Get the raw path points
-  const rawPath = pathIds.map(id => pointsToUse.find(p => p.id === id)!).filter(Boolean);
+  // Get the path points
+  const path = pathIds.map(id => pointsToUse.find(p => p.id === id)!).filter(Boolean);
   
-  // Apply smoothing for Google Maps-like curves
-  const smoothedPath = smoothPath(rawPath);
+  console.log('=== PATHFINDING COMPLETE ===');
+  console.log('Final path length:', path.length);
+  console.log('Path coordinates:', path.map(p => ({ x: p.x, y: p.y, name: p.name })));
   
-  return smoothedPath;
+  return path;
 };
