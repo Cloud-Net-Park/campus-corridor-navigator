@@ -1,4 +1,3 @@
-
 interface Point {
   x: number;
   y: number;
@@ -42,7 +41,7 @@ const canConnect = (a: Point, b: Point): boolean => {
   const distance = getDistance(a, b);
   
   // Don't connect if too far apart
-  if (distance > 80) return false;
+  if (distance > 60) return false;
   
   // Same floor requirement
   if (a.floor !== b.floor) return false;
@@ -50,23 +49,25 @@ const canConnect = (a: Point, b: Point): boolean => {
   // Corridor to corridor connections (must be close and aligned)
   if (a.type === 'corridor' && b.type === 'corridor') {
     // Horizontal alignment (same Y, close X)
-    if (Math.abs(a.y - b.y) <= 10 && distance <= 70) return true;
+    if (Math.abs(a.y - b.y) <= 15 && distance <= 50) return true;
     // Vertical alignment (same X, close Y)
-    if (Math.abs(a.x - b.x) <= 10 && distance <= 70) return true;
+    if (Math.abs(a.x - b.x) <= 15 && distance <= 50) return true;
+    // Diagonal connections for corners
+    if (distance <= 35) return true;
   }
   
   // Room to nearest corridor connections
   if ((a.type === 'room' || a.type === 'stairs') && b.type === 'corridor') {
-    return distance <= 60;
+    return distance <= 40;
   }
   
   if (a.type === 'corridor' && (b.type === 'room' || b.type === 'stairs')) {
-    return distance <= 60;
+    return distance <= 40;
   }
   
-  // Room to room only if very close (same building section)
+  // Room to room only if very close (adjacent rooms)
   if ((a.type === 'room' || a.type === 'stairs') && (b.type === 'room' || b.type === 'stairs')) {
-    return distance <= 50;
+    return distance <= 30;
   }
   
   return false;
@@ -182,23 +183,50 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   return []; // No path found
 };
 
-// Create a direct path when A* fails
-const createDirectPath = (start: Point, end: Point): Point[] => {
+// Create a more realistic path when A* fails
+const createDirectPath = (start: Point, end: Point, allPoints: Point[]): Point[] => {
   const path: Point[] = [start];
   
-  // Simple L-shaped path
-  const midPoint: Point = {
-    x: start.x,
-    y: end.y,
-    id: 'mid_waypoint',
-    name: 'Waypoint',
-    floor: start.floor,
-    type: 'corridor'
-  };
+  // Find nearest corridor to start
+  const corridors = allPoints.filter(p => p.type === 'corridor' && p.floor === start.floor);
+  let nearestToStart = corridors.reduce((closest, corridor) => {
+    const distToStart = getDistance(start, corridor);
+    const distToClosest = getDistance(start, closest);
+    return distToStart < distToClosest ? corridor : closest;
+  }, corridors[0]);
   
-  // Only add midpoint if it creates a meaningful path
-  if (Math.abs(start.x - end.x) > 30 && Math.abs(start.y - end.y) > 30) {
-    path.push(midPoint);
+  // Find nearest corridor to end
+  let nearestToEnd = corridors.reduce((closest, corridor) => {
+    const distToEnd = getDistance(end, corridor);
+    const distToClosest = getDistance(end, closest);
+    return distToEnd < distToClosest ? corridor : closest;
+  }, corridors[0]);
+  
+  if (nearestToStart && nearestToEnd) {
+    // Add waypoint to start corridor
+    if (getDistance(start, nearestToStart) > 20) {
+      path.push(nearestToStart);
+    }
+    
+    // Add intermediate waypoints for better visualization
+    const midX = (nearestToStart.x + nearestToEnd.x) / 2;
+    const midY = (nearestToStart.y + nearestToEnd.y) / 2;
+    
+    // Find corridor point closest to midpoint
+    const midPoint = corridors.reduce((closest, corridor) => {
+      const distToMid = Math.sqrt(Math.pow(corridor.x - midX, 2) + Math.pow(corridor.y - midY, 2));
+      const distToClosest = Math.sqrt(Math.pow(closest.x - midX, 2) + Math.pow(closest.y - midY, 2));
+      return distToMid < distToClosest ? corridor : closest;
+    }, corridors[0]);
+    
+    if (midPoint && midPoint.id !== nearestToStart.id && midPoint.id !== nearestToEnd.id) {
+      path.push(midPoint);
+    }
+    
+    // Add waypoint to end corridor
+    if (getDistance(end, nearestToEnd) > 20 && nearestToEnd.id !== nearestToStart.id) {
+      path.push(nearestToEnd);
+    }
   }
   
   path.push(end);
@@ -242,7 +270,7 @@ export const findPath = (start: Point, end: Point, allPoints: Point[]): Point[] 
   
   if (pathIds.length === 0) {
     console.log('A* failed, creating direct path');
-    return createDirectPath(start, end);
+    return createDirectPath(start, end, allPoints);
   }
   
   // Get the path points
