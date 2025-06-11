@@ -1,3 +1,4 @@
+
 interface Point {
   x: number;
   y: number;
@@ -29,47 +30,40 @@ const getNodeDistance = (a: GraphNode, b: GraphNode): number => {
   return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
 };
 
-// Heuristic function for A* (straight line distance)
+// Manhattan distance heuristic for A* (better for grid-like corridors)
 const heuristic = (a: GraphNode, b: GraphNode): number => {
-  const dx = Math.abs(b.x - a.x);
-  const dy = Math.abs(b.y - a.y);
-  return Math.sqrt(dx * dx + dy * dy);
+  return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
 };
 
-// Improved connection logic based on blueprint walkways
+// Strict corridor connection logic following black walkways only
 const canConnect = (a: Point, b: Point): boolean => {
   const distance = getDistance(a, b);
-  
-  // Don't connect if too far apart
-  if (distance > 60) return false;
   
   // Same floor requirement
   if (a.floor !== b.floor) return false;
   
-  // Corridor to corridor connections (must be close and aligned)
+  // Corridor to corridor connections (only adjacent corridors)
   if (a.type === 'corridor' && b.type === 'corridor') {
-    // Horizontal alignment (same Y, close X)
-    if (Math.abs(a.y - b.y) <= 15 && distance <= 50) return true;
-    // Vertical alignment (same X, close Y)
-    if (Math.abs(a.x - b.x) <= 15 && distance <= 50) return true;
-    // Diagonal connections for corners
-    if (distance <= 35) return true;
+    // Only connect adjacent corridor points (max 25 pixels apart)
+    if (distance <= 25) {
+      // Horizontal alignment (same Y, close X)
+      if (Math.abs(a.y - b.y) <= 10 && Math.abs(a.x - b.x) <= 25) return true;
+      // Vertical alignment (same X, close Y)
+      if (Math.abs(a.x - b.x) <= 10 && Math.abs(a.y - b.y) <= 25) return true;
+    }
+    return false;
   }
   
-  // Room to nearest corridor connections
+  // Room to corridor connections (room entrance to nearest corridor)
   if ((a.type === 'room' || a.type === 'stairs') && b.type === 'corridor') {
-    return distance <= 40;
+    return distance <= 35;
   }
   
   if (a.type === 'corridor' && (b.type === 'room' || b.type === 'stairs')) {
-    return distance <= 40;
+    return distance <= 35;
   }
   
-  // Room to room only if very close (adjacent rooms)
-  if ((a.type === 'room' || a.type === 'stairs') && (b.type === 'room' || b.type === 'stairs')) {
-    return distance <= 30;
-  }
-  
+  // No direct room to room connections
   return false;
 };
 
@@ -104,7 +98,7 @@ const buildGraph = (points: Point[]): { [key: string]: GraphNode } => {
   return graph;
 };
 
-// A* pathfinding algorithm
+// A* pathfinding algorithm optimized for shortest path
 const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: string): string[] => {
   // Reset graph
   Object.values(graph).forEach(node => {
@@ -130,13 +124,13 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   const closedSet = new Set();
   
   while (openSet.size > 0) {
-    // Find node with lowest fCost
+    // Find node with lowest fCost (shortest path priority)
     let currentId = '';
     let lowestF = Infinity;
     
     for (const nodeId of openSet) {
       const node = graph[nodeId];
-      if (node.fCost < lowestF) {
+      if (node.fCost < lowestF || (node.fCost === lowestF && node.hCost < graph[currentId]?.hCost)) {
         lowestF = node.fCost;
         currentId = nodeId;
       }
@@ -183,12 +177,18 @@ const aStar = (graph: { [key: string]: GraphNode }, startId: string, endId: stri
   return []; // No path found
 };
 
-// Create a more realistic path when A* fails
-const createDirectPath = (start: Point, end: Point, allPoints: Point[]): Point[] => {
+// Create corridor-based path when direct A* fails
+const createCorridorPath = (start: Point, end: Point, allPoints: Point[]): Point[] => {
   const path: Point[] = [start];
   
-  // Find nearest corridor to start
+  // Find corridors on the same floor
   const corridors = allPoints.filter(p => p.type === 'corridor' && p.floor === start.floor);
+  
+  if (corridors.length === 0) {
+    return [start, end];
+  }
+  
+  // Find nearest corridor to start
   let nearestToStart = corridors.reduce((closest, corridor) => {
     const distToStart = getDistance(start, corridor);
     const distToClosest = getDistance(start, closest);
@@ -202,29 +202,52 @@ const createDirectPath = (start: Point, end: Point, allPoints: Point[]): Point[]
     return distToEnd < distToClosest ? corridor : closest;
   }, corridors[0]);
   
-  if (nearestToStart && nearestToEnd) {
-    // Add waypoint to start corridor
-    if (getDistance(start, nearestToStart) > 20) {
-      path.push(nearestToStart);
+  if (nearestToStart && nearestToEnd && nearestToStart.id !== nearestToEnd.id) {
+    // Add corridor points following the main walkway
+    path.push(nearestToStart);
+    
+    // Navigate through main corridor (y = 350) if possible
+    const mainCorridorY = 350;
+    const tolerance = 15;
+    
+    // If start corridor is not on main corridor, go to main corridor first
+    if (Math.abs(nearestToStart.y - mainCorridorY) > tolerance) {
+      const mainCorridorPoint = corridors.find(c => 
+        Math.abs(c.y - mainCorridorY) <= tolerance && 
+        Math.abs(c.x - nearestToStart.x) <= 50
+      );
+      if (mainCorridorPoint) {
+        path.push(mainCorridorPoint);
+      }
     }
     
-    // Add intermediate waypoints for better visualization
-    const midX = (nearestToStart.x + nearestToEnd.x) / 2;
-    const midY = (nearestToStart.y + nearestToEnd.y) / 2;
+    // Navigate along main corridor toward destination
+    const startX = Math.min(nearestToStart.x, nearestToEnd.x);
+    const endX = Math.max(nearestToStart.x, nearestToEnd.x);
     
-    // Find corridor point closest to midpoint
-    const midPoint = corridors.reduce((closest, corridor) => {
-      const distToMid = Math.sqrt(Math.pow(corridor.x - midX, 2) + Math.pow(corridor.y - midY, 2));
-      const distToClosest = Math.sqrt(Math.pow(closest.x - midX, 2) + Math.pow(closest.y - midY, 2));
-      return distToMid < distToClosest ? corridor : closest;
-    }, corridors[0]);
+    const mainCorridorPoints = corridors
+      .filter(c => Math.abs(c.y - mainCorridorY) <= tolerance && c.x >= startX && c.x <= endX)
+      .sort((a, b) => nearestToStart.x < nearestToEnd.x ? a.x - b.x : b.x - a.x);
     
-    if (midPoint && midPoint.id !== nearestToStart.id && midPoint.id !== nearestToEnd.id) {
-      path.push(midPoint);
+    // Add intermediate points on main corridor
+    mainCorridorPoints.forEach(point => {
+      if (point.id !== nearestToStart.id && point.id !== nearestToEnd.id) {
+        path.push(point);
+      }
+    });
+    
+    // If end corridor is not on main corridor, add final corridor point
+    if (Math.abs(nearestToEnd.y - mainCorridorY) > tolerance) {
+      const finalCorridorPoint = corridors.find(c => 
+        Math.abs(c.y - mainCorridorY) <= tolerance && 
+        Math.abs(c.x - nearestToEnd.x) <= 50
+      );
+      if (finalCorridorPoint && !path.find(p => p.id === finalCorridorPoint.id)) {
+        path.push(finalCorridorPoint);
+      }
     }
     
-    // Add waypoint to end corridor
-    if (getDistance(end, nearestToEnd) > 20 && nearestToEnd.id !== nearestToStart.id) {
+    if (nearestToEnd.id !== nearestToStart.id && !path.find(p => p.id === nearestToEnd.id)) {
       path.push(nearestToEnd);
     }
   }
@@ -269,8 +292,8 @@ export const findPath = (start: Point, end: Point, allPoints: Point[]): Point[] 
   const pathIds = aStar(graph, start.id, end.id);
   
   if (pathIds.length === 0) {
-    console.log('A* failed, creating direct path');
-    return createDirectPath(start, end, allPoints);
+    console.log('A* failed, creating corridor-based path');
+    return createCorridorPath(start, end, allPoints);
   }
   
   // Get the path points
